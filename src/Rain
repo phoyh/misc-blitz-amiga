@@ -1,0 +1,62 @@
+.Routine
+Statement Rain{bmapzeiger.l,o1.w,o2.w}
+UNLK a4
+MOVE.l  d0,a0
+MOVE.l  28(a0),a1
+MOVE.w  d1,d0
+MOVE.w  (a0),d1
+LSL.w   #3,d1
+ADD.w   d2,d1
+MOVE.w  54(a0),d2
+LSL.w   #3,d2
+SUB.w   d1,d2
+SUB.w   d1,d2
+MOVE.w  #1000,d3
+MOVEQ   #0,d4
+Loop:
+ADD.w   d0,d3
+SUB.w   d0,d4
+CMP.w   d2,d3
+BHI     ExitLoop
+BSR     DrawPix
+ADD.w   d1,d3
+SUB.w   d1,d4
+BSR     DrawPix
+ADD.w   d1,d3
+SUB.w   d1,d4
+BSR     DrawPix
+BRA     Loop
+DrawPix:
+MOVE.w  d3,d5
+LSR.w   #3,d5
+BCHG    d4,0(a1,d5.w)
+MOVE.l  #$FFFFFFFF,(a1)
+ExitLoop:
+RTS
+BitMapAdr: Dc.l  0
+Offset1:   Dc.w  0
+Offset2:   Dc.w  0
+End Statement
+
+.Main
+BitMap 0,320,200,6
+LoadBitMap 0,"/pics/cave",0
+BLITZ
+Slice 0,44,320,200,$fff8,6,0,32,320,320
+Show 0,0,0
+Use Palette 0
+For r.w=-2 To 2
+For i=1 To 60
+v.w=u.w
+While u.w=v.w
+ u.w=-Int(Rnd*10)-r.w*2-195
+Wend
+Rain{Addr BitMap(0),u.w,r.w}
+For ii=1 To 500
+Next ii
+Rain{Addr BitMap(0),u.w,r.w}
+Next i
+Next r
+MouseWait
+End
+

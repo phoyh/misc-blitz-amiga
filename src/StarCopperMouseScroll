@@ -1,0 +1,315 @@
+BitMap 0,640,256,5
+LoadBitMap 0,"/pics/bomber-landscape",0
+BLITZ
+Slice 0,44,320,190,$fff8,5,8,32,640,640
+Mouse On
+Use Palette 0
+Show 0
+
+
+
+; ACHTUNG : --------------------------------------------------
+staranz.w = 19            ; Anzahl der Sterne ...
+Dim starx.w(staranz)      ; Original Koos von Rnd(0 - 319)
+Dim stary.w(staranz)      ;                   Rnd(0 - 150)
+Dim starx2.w(staranz)     ; Tatsaechliche Koos, mit offsets
+Dim stary2.w(staranz)     ; verrechnet
+Dim starbool.b(staranz)   ; Bool Feld
+Dim starcolor.b(staranz)  ; Farbe !
+Dim zeiger.l(6)
+For n.w=0 To staranz
+ starbool.b(n)=0
+Next n
+
+.params
+; NEU :
+Dim bytecolor.l(staranz)  ; fuer die Assembler-Routine :
+Dim byteoffset.w(staranz)
+Dim byteoffpos.w(staranz)
+
+zeiger(0) = &starx(0)
+zeiger(1) = &stary(0)
+zeiger(2) = &byteoffset(0)
+zeiger(3) = &byteoffpos(0)
+zeiger(4) = &starbool(0)
+zeiger(5) = &bytecolor(0)
+bitmapzeiger.l = Addr BitMap (0)
+
+; Sorry, es sind zu viele Zeiger, um sie direkt in die Register zu
+; schieben. Daher hab ich eine Struktur "Zeiger" (s.o.) gemacht, wo
+; Du alles rauslesen kannst.
+
+; Die Signatur soll spaeter lauten : (oder so aehnlich)
+; Stars {Zeiger_auf_Zeigerstruktur.l , bitmapzeiger.l , Anzahl.w , xoffset.w, yoffset.w}
+
+; Beispielaufruf :
+; Stars {&zeiger(0),bitmapzeiger,staranz,xoffset,yoffset}
+
+; Bitmap Struktur :   offset
+;linemod.w              0
+;height.w               2
+;bdepth.w               4
+;pad.b [2]              6
+;planes.l [8]           8
+;pad2.b [12]           40
+;flags.w               52
+;bitplanemod.w         54
+;xclip.w               56
+;yclip.w               58
+;cclip.w               60
+;isreal.w              62
+;SIZE OF               64
+
+
+
+; ---------------------- Bisschen Startup ... -------------------
+For n.w=0 To staranz
+starx(n) = Rnd * 320
+stary(n) = Rnd * 200
+color.w = Rnd * 3.999
+Select color
+Case 0
+starcolor(n) = 7
+bytecolor(n) = $1|$100|$10000
+Case 1
+starcolor(n) = 8
+bytecolor(n) = $1000000
+Case 2
+starcolor(n) = 14
+bytecolor(n) = $100|$10000|$1000000
+Case 3
+starcolor(n) = 15
+bytecolor(n) = $1|$100|$10000|$1000000
+End Select
+Next
+yview=190
+f.w = (yview-70) / 16
+For n = 1 To 15
+  ColSplit 0,n,0,n,n * f + 70
+  ColSplit 0,n,0,n,(n+1) * f -1 + 70
+  ColSplit 0,n,0,n,n * f-2 + 70
+Next
+ColSplit 0,0,0,0,yview
+; -----------------------------------------------------
+
+.hisPRG
+
+; Meine tolle(????????????) Procedure :
+Statement give_me_some_Stars {}
+SHARED staranz,starx(),stary(),starbool(),starx2(),stary2(),xoffset,yoffset,starcolor()
+For n.w=0 To staranz
+ If starbool(n) Then Plot starx2(n),stary2(n),0
+ starx2(n) = ((starx(n)-xoffset/2) MOD 320) + xoffset
+ stary2(n) = yoffset/2+stary(n)
+ If stary2(n)>yoffset
+  If Point (starx2(n),stary2(n)) = 0 Then Plot starx2(n),stary2(n),starcolor(n):starbool(n)=True:Else starbool(n)=False
+ End If
+Next
+End Statement
+
+.myPRG
+Statement super_star{pointStruct.l,planes.l,staranz.w,xoffset.w,yoffset.w}
+MOVEM.l a0-a6/d5-d7,-(a7)
+MOVE.l  d1,a6
+ADDA.l  #8,a6
+MOVE.l  (a6)+,a0
+MOVE.l  (a6)+,a1
+MOVE.l  (a6)+,a2
+MOVE.l  (a6)+,a3
+MOVE.l  d0,a5
+MOVE.l  16(a5),a6
+MOVE.l  8(a5),a4
+MOVE.l  12(a5),a5
+MOVE.w  d2,bb0
+MOVEQ   #0,d7
+bb1:
+TST.b   (a6)+
+BEQ     bb2
+MOVE.w  0(a4,d7.w),d5
+MOVE.w  0(a5,d7.w),d6
+BCLR    d6,0(a0,d5.w)
+BCLR    d6,0(a1,d5.w)
+BCLR    d6,0(a2,d5.w)
+BCLR    d6,0(a3,d5.w)
+bb2:
+ADD.w   #2,d7
+DBF     d2,bb1
+MOVE.l  d1,a6
+MOVE.l  d0,a5
+MOVE.l  0(a5),a0
+MOVE.l  4(a5),a1
+MOVE.l  8(a5),a2
+MOVE.l  12(a5),a3
+MOVE.l  16(a5),a4
+MOVE.w  bb0,d2
+MOVE.w  d3,d5
+MOVE.w  d4,d6
+LSR.w   #1,d5         ;Hier hast du deine 2 lsr
+LSR.w   #1,d6         ;sogar untereinander!
+                      ;kannst du nach belieben veraendern!
+bb17:
+MOVE.w  (a0)+,d0
+MOVE.w  (a1)+,d1
+ADD.w   d6,d1
+CMP.w   d4,d1
+BHI     bb4
+CLR.b   (a4)+
+ADDA.l  #2,a3
+ADDA.l  #2,a2
+BRA     bb29
+bb4:
+CMP.w   d5,d0
+BGE     bb16
+ADD.w   #320,d0
+BRA     bb4
+bb16:
+SUB.w   d5,d0
+DIVU    #320,d0
+SWAP    d0
+AND.l   #$FFFF,d0
+ADD.w   d3,d0
+MOVE.b  #1,(a4)+
+MOVE.w  d0,d7
+NOT.w   d7
+AND.w   #7,d7
+MOVE.w  d7,(a3)+
+LSR.w   #3,d0
+MULU    0(a6),d1
+ADD.w   d0,d1
+MOVE.w  d1,(a2)+
+bb29:
+DBF     d2,bb17
+MOVE.l  a6,d1
+ADDA.l  #8,a6
+MOVE.l  (a6)+,a0
+MOVE.l  (a6)+,a1
+MOVE.l  (a6)+,a2
+MOVE.l  (a6)+,a3
+MOVE.l  (a6)+,a4
+MOVE.l  a5,d0
+MOVE.l  12(a5),-(a7)
+MOVE.l  8(a5),-(a7)
+MOVE.l  16(a5),a5
+MOVE.w  bb0,d2
+MOVEQ   #0,d7
+bb3:
+TST.b   (a5)+
+BEQ     bb5
+MOVE.l  (a7),a6
+MOVE.w  0(a6,d7.w),d5
+MOVE.l  4(a7),a6
+MOVE.w  0(a6,d7.w),d6
+BTST    d6,0(a4,d5.w)
+BNE     bb14
+BTST    d6,0(a3,d5.w)
+BNE     bb14
+BTST    d6,0(a2,d5.w)
+BNE     bb14
+BTST    d6,0(a1,d5.w)
+BNE     bb14
+BTST    d6,0(a0,d5.w)
+BNE     bb14
+BRA     bb5
+bb14:
+CLR.b   -1(a5)
+bb5:
+ADD.w   #2,d7
+DBF     d2,bb3
+ADDA.l  #8,a7
+MOVE.l  d1,a6
+ADDA.l  #8,a6
+MOVE.l  (a6)+,a0
+MOVE.l  (a6)+,a1
+MOVE.l  (a6)+,a2
+MOVE.l  (a6)+,a3
+MOVE.l  d0,a5
+MOVE.l  16(a5),a6
+MOVE.l  12(a5),-(a7)
+MOVE.l  8(a5),-(a7)
+MOVE.l  20(a5),a5
+MOVE.w  bb0,d2
+MOVEQ   #0,d7
+bb15:
+TST.b   (a6)+
+BEQ     bb21
+MOVE.l  (a7),a4
+MOVE.w  0(a4,d7.w),d5
+MOVE.l  4(a7),a4
+MOVE.w  0(a4,d7.w),d6
+TST.b   (a5)+
+BNE     bb13
+BCLR    d6,0(a3,d5.w)
+BRA     bb6
+bb13:
+BSET    d6,0(a3,d5.w)
+bb6:
+TST.b   (a5)+
+BNE     bb11
+BCLR    d6,0(a2,d5.w)
+BRA     bb8
+bb11:
+BSET    d6,0(a2,d5.w)
+bb8:
+TST.b   (a5)+
+BNE     bb12
+BCLR    d6,0(a1,d5.w)
+BRA     bb7
+bb12:
+BSET    d6,0(a1,d5.w)
+bb7:
+TST.b   (a5)+
+BNE     bb10
+BCLR    d6,0(a0,d5.w)
+BRA     bb9
+bb10:
+BSET    d6,0(a0,d5.w)
+bb9:
+BRA     bb20
+bb21:
+ADDA.l  #4,a5
+bb20:
+ADD.w   #2,d7
+DBF     d2,bb15
+ADDA.l  #8,a7
+MOVEM.l (a7)+,a0-a6/d5-d7
+End Statement
+
+Goto MainLoop
+
+bb0:    Dc.w 0
+
+
+.MainLoop
+While Joyb(0)=0
+xoffset.q = QLimit(xoffset+MouseXSpeed,0,640-320)
+yoffset.q = QLimit(yoffset+MouseYSpeed,0,256-190)
+VWait
+Show 0,xoffset,yoffset
+;give_me_some_Stars {}
+super_star {&zeiger(0),bitmapzeiger,staranz,xoffset,yoffset}
+For n=1 To 100:Next n
+Wend
+
+ResetTimer
+; Speed Check, setze hier Deine Procedur statt meiner ein.
+
+While Ticks<50
+;give_me_some_Stars {}
+super_star {&zeiger(0),bitmapzeiger,staranz,xoffset,yoffset}
+counter.l + 1
+Wend
+
+AMIGA
+NPrint ".."
+NPrint ".."
+NPrint ".."
+NPrint ".."
+NPrint ".."
+NPrint ".."
+NPrint "Speed Test :"
+NPrint counter," mal die Sternenroutine in 1 sec ! (",staranz+1," Sterne !)"
+q.q = 50/counter
+NPrint "Die Routine braucht also ",q," Frames ! (bei 50 Hz)"
+MouseWait
+End
+

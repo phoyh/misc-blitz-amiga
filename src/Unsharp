@@ -1,0 +1,28 @@
+;#x1=50
+;#y1=65
+;#x2=190
+;#y2=125
+;bild$="pics:normanburg"
+#x1=100
+#y1=50
+#x2=260
+#y2=180
+bild$="/pics/cave"
+#width=#x2-#x1
+#hight=#y2-#y1
+
+Screen 0,0,0,320,200,5,0,"Huhu",1,0
+ScreensBitMap 0,0
+LoadScreen 0,bild$,0
+Use Palette 0
+While JoyC(0)<>0:Wend
+Use BitMap 0
+Repeat
+ x.w=Rnd(#width)+#x1
+ y.w=Rnd(#hight)+#y1
+ a.b=Point(x.w,y.w)
+ Boxf x.w-1,y.w-1,x.w+1,y.w+1,a.b
+; Line x.w-1,y.w,x.w+1,y.w,a.b
+; Line x.w,y.w-1,x.w,y.w+1,a.b
+Until JoyC(0)<>0
+End
